@@ -1,401 +1,348 @@
-# Our team will release all the scenes and all the data and all your need on 2026/10/20! Please give me some time!
+# LIBERO-Recovery
 
-Evaluation pipeline for benchmarking vision-language-action (VLA) policies on **your own
-LIBERO scenes** under a controlled robustness protocol: every rollout gets a fresh small
-random perturbation of object positions, and half of the rollouts start with the robot
-gripper **closed** instead of the default open — probing how well a policy recovers from
-initial states it never saw in training.
+> **Data release: all scenes, annotations and rollouts are being published on
+> ModelScope — everything will be downloadable by 2026-10-20.**
 
-The whole benchmark is driven by a single launcher script:
+Failure-recovery benchmark for VLA policies on the five LIBERO suites: **4,803
+annotated failure scenes** (recovery level L1–L4) + a one-script evaluation
+protocol (fresh ±2 cm object perturbation per rollout, half the rollouts start
+gripper-closed).
+
+> `$STARVLA` below = this repo's root on *your* machine (`export
+> STARVLA=~/starVLA` after cloning). All machine-specific paths live in one
+> *User-configurable parameters* block at the top of the launcher script.
+
+## Quickstart
 
 ```bash
-$STARVLA/examples/LIBERO/eval_files/eval_libero_custom_scene.sh
+# 1. envs (details: §1)
+conda create -n starvla python=3.10 -y && conda activate starvla
+pip install -r requirements.txt && pip install flash-attn --no-build-isolation && pip install -e .
+conda create -n libero python=3.10 -y
+LIBERO_DIR="$STARVLA/LIBERO" bash examples/LIBERO/eval_files/install_libero.sh
+
+# 2. scenes (details: §2)
+pip install -U modelscope
+modelscope download --dataset ataier/LIBERO_Recovery_FailureScenes \
+  --local_dir "$STARVLA/benchmark_failure"
+
+# 3. evaluate (details: §3)
+bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh \
+  --scene_dir "$STARVLA/benchmark_failure/scenes/libero_spatial"
+
+# 4. results
+cat "$STARVLA/LIBERO/eval_result/custom_scene/<model>/custom_scene/scene_summary.json"
 ```
 
-> **Path convention.** `$STARVLA` below denotes the starVLA repo root on *your* machine,
-> e.g. `export STARVLA=~/starVLA` after cloning. The launcher ships with the author's
-> paths filled in — every absolute path you need to change lives in one
-> "User-configurable parameters" block at the top of the script (see
-> [§6 Configure the launcher](#6-configure-the-launcher)).
-
-The launcher starts one policy server per model on GPU, runs the eval client
-(`eval_libero_custom_scene.py`) headlessly in MuJoCo, and finally aggregates results.
-
-<p align="center">
-  <img src="docs/architecture.svg" width="820" alt="Evaluation pipeline: launcher starts policy servers, eval client rolls out scenes, outputs land in LOG_PATH" />
-</p>
-
 ---
 
-## Table of contents
+## 1. Environment setup
 
-1. [Benchmark protocol](#1-benchmark-protocol)
-2. [Datasets & assets (download)](#2-datasets--assets-download)
-3. [Repository layout](#3-repository-layout)
-4. [Environment setup](#4-environment-setup)
-5. [Preparing your scenes](#5-preparing-your-scenes)
-6. [Configure the launcher](#6-configure-the-launcher)
-7. [Registering models](#7-registering-models)
-8. [Usage](#8-usage)
-9. [Outputs & metrics](#9-outputs--metrics)
-10. [How the launcher works](#10-how-the-launcher-works)
-11. [Troubleshooting](#11-troubleshooting)
+Requirements: NVIDIA GPU (bf16 server + EGL off-screen rendering via
+`MUJOCO_GL=egl`, set by the launcher), conda, ~1 GB disk per 300 episodes.
 
----
+Two conda envs, both Python 3.10 / torch 2.6.0+cu124:
 
-## 1. Benchmark protocol
-
-Each **scene** is a pair of files — a task definition `<stem>.bddl` plus a recorded
-initial physics state `<stem>_sim_state.npy`. For every scene the client runs
-`num_close_trials + num_open_trials` rollouts (default **5 + 5 = 10**):
-
-<p align="center">
-  <img src="docs/protocol.svg" width="880" alt="Per-scene protocol: 10 rollouts, each with fresh ±2cm xy perturbation, half starting with gripper closed, half open" />
-</p>
-
-| Stage | What happens | Default |
+| Env | Runs | Install |
 |---|---|---|
-| Load | Env is built from the `.bddl`; the recorded state is loaded into an **in-memory copy** (on-disk files are never modified) | — |
-| Perturb | A fresh uniform **xy offset** is applied to every *free-joint* object (hinge/slide joints such as drawers or stove buttons are never touched) | `obj_noise_xy = 0.02` (±2 cm) |
-| Restore | The perturbed state is set as the init state; the OSC controller goal is re-anchored to the current EEF pose so the arm does not drift on step 1 | — |
-| Settle gripper | The gripper is *driven* (not teleported) to the target opening by stepping a zero-delta arm action | `gripper_settle_steps = 20` |
-| Roll out | The policy controls the robot for at most **520 steps**; a rollout is a success iff the env's `done` signal fires | `num_steps_wait = 0` |
-| Record | Agentview + wrist videos, an `.npz` episode, and timing metrics are written | always |
+| `starvla` | policy server | `conda create -n starvla python=3.10 -y` → activate → `pip install -r requirements.txt && pip install flash-attn --no-build-isolation && pip install -e .` |
+| `libero` | eval client | `conda create -n libero python=3.10 -y` → `LIBERO_DIR="$STARVLA/LIBERO" bash examples/LIBERO/eval_files/install_libero.sh` |
 
-Design notes:
+HuggingFace is forced **offline** by the launcher — base-model artifacts must
+already be in `~/.cache/huggingface`.
 
-- **Closed-grip starts.** The `close` trials begin with the gripper fully closed — an
-  out-of-distribution initial state for most LIBERO-trained policies. Success rates are
-  reported separately for `close` and `open` splits, plus overall.
-- **Seeded reproducibility.** Scene sampling (`--num_scenes`), object perturbations, and
-  env placement retries all use dedicated seeded RNGs, so a run is reproducible from
-  `--seed` alone.
-- **Robust env construction.** LIBERO's randomized placement sampler can fail on the
-  tight (~2 cm) regions of custom scenes; the client reseeds and retries up to 12 times
-  (the layout is throwaway anyway — it is overwritten by the recorded sim state).
+Sanity check:
 
-## 2. Datasets & assets (download)
+```bash
+conda activate libero  && python -c "from libero.libero.envs import OffScreenRenderEnv; print('client OK')"
+conda activate starvla && python -c "import flash_attn, transformers; print('server OK')"
+```
 
-Three companion datasets are hosted on ModelScope (org `ataier`). Install the CLI once,
-then download what you need:
+## 2. Data download
 
 ```bash
 pip install -U modelscope
 ```
 
-| Dataset | Contents | Put it at | Needed for eval? |
+| Dataset (org `ataier`) | Contents | Download to | Needed for |
 |---|---|---|---|
-| [`ataier/LIBERO_Recovery_Assets`](https://www.modelscope.cn/datasets/ataier/LIBERO_Recovery_Assets) | **Scene files** — the `.bddl` + `_sim_state.npy` libraries used by this benchmark | `$STARVLA/assets/scenes/` | ✅ yes |
-| [`ataier/LIBERO_Recovery_Expert`](https://www.modelscope.cn/datasets/ataier/LIBERO_Recovery_Expert) | **Expert demonstrations** (recovery / regrasp teaching data, LeRobot format) | `$STARVLA/datasets/` (any location — referenced by training configs) | ❌ training only |
-| [`ataier/LIBERO_10_LL`](https://www.modelscope.cn/datasets/ataier/LIBERO_10_LL) | **Pre-failure history** — LIBERO-10 episodes truncated just before the failure point | `$STARVLA/datasets/` (any location — referenced by training configs) | ❌ training only |
+| `LIBERO_Recovery_FailureScenes` | 4,803 scenes (bddl+npy), annotations, indices | `$STARVLA/benchmark_failure/` | ✅ running the benchmark |
+| `LIBERO_Recovery_Assets` | 880 curated scenes (launcher default) | `$STARVLA/assets/scenes/` | optional |
+| `LIBERO_Recovery_Expert` | expert demos, LeRobot format | `$STARVLA/datasets/` | training only |
+| `LIBERO_10_LL` | pre-failure history episodes | `$STARVLA/datasets/` | training only |
+| `LIBERO_Recovery_Rollouts` | 1,446 raw `.npz` rollouts, 80 GB | `$STARVLA/` | reproducibility only |
 
 ```bash
-# 1) Scene assets — required by the evaluation
-modelscope download --dataset ataier/LIBERO_Recovery_Assets \
-  --local_dir "$STARVLA/assets/scenes"
-
-# 2) Expert demonstrations — for training recovery policies
-modelscope download --dataset ataier/LIBERO_Recovery_Expert \
-  --local_dir "$STARVLA/datasets/LIBERO_Recovery_Expert"
-
-# 3) Pre-failure history (LIBERO-10) — for training recovery policies
-modelscope download --dataset ataier/LIBERO_10_LL \
-  --local_dir "$STARVLA/datasets/LIBERO_10_LL"
+modelscope download --dataset ataier/LIBERO_Recovery_FailureScenes --local_dir "$STARVLA/benchmark_failure"
+modelscope download --dataset ataier/LIBERO_Recovery_Assets     --local_dir "$STARVLA/assets/scenes"
+modelscope download --dataset ataier/LIBERO_Recovery_Expert     --local_dir "$STARVLA/datasets/LIBERO_Recovery_Expert"
+modelscope download --dataset ataier/LIBERO_10_LL               --local_dir "$STARVLA/datasets/LIBERO_10_LL"
+modelscope download --dataset ataier/LIBERO_Recovery_Rollouts   --local_dir "$STARVLA"          # 80 GB
 ```
 
-(`git clone https://www.modelscope.cn/datasets/ataier/<name>.git` works too.)
-
-After step 1 you should see the scene libraries side by side:
+Layout after download:
 
 ```
-$STARVLA/assets/scenes/
-├── selected_bddl_scenes_spatial/   # 168 scenes — the launcher's default
-├── selected_bddl_scenes_goal/      #  91 scenes
-├── selected_bddl_scenes_object/    #  77 scenes
-├── selected_bddl_scenes_10/        # 207 scenes
-└── selected_bddl_scenes_90/        # 337 scenes
+$STARVLA/benchmark_failure/
+├── scenes/<suite>/…            # scene pairs: <stem>.bddl + <stem>_sim_state.npy;
+│                               #   L4 scenes (l4i_step_*) sit beside their source snapshot
+├── annotations/
+│   ├── episodes/<suite>/…      # per-episode fail-step annotations
+│   └── scenes/<suite>/…        # per-scene level annotations
+├── index/
+│   ├── selection.jsonl         # master index, 4,803 rows (all annotation fields)
+│   ├── selection_l4.jsonl      # constructed-L4 subset (465)
+│   ├── injection_provenance.jsonl
+│   └── scenes_index.jsonl      # full dump inventory (26,710)
+└── l4i_dropped.txt             # 11 scenes excluded after t0 verification
+
+$STARVLA/assets/scenes/         # from LIBERO_Recovery_Assets
+└── selected_bddl_scenes_{spatial,goal,object,10,90}/   # 168/91/77/207/337 scenes
 ```
 
-Only the scene assets are required to *run the benchmark*; the two training datasets are
-what the recovery policies demonstrated on the project page were trained on.
+## 3. Running evaluations
 
-## 3. Repository layout
+### 3.1 Choose scenes
 
-Paths relative to the starVLA repo root (`$STARVLA`).
+The client globs `*.bddl` **recursively** under `--scene_dir` and pairs each with
+its sibling `<stem>_sim_state.npy` (missing `.npy` → scene skipped with a
+warning). Any folder of such pairs works.
 
-| File | Role |
-|---|---|
-| `examples/LIBERO/eval_files/eval_libero_custom_scene.sh` | **Launcher** — everything you interact with. Starts servers, runs clients, aggregates. |
-| `examples/LIBERO/eval_files/eval_libero_custom_scene.py` | Eval client — builds MuJoCo envs, applies the perturbation + gripper protocol, records results. |
-| `examples/LIBERO/eval_files/model2libero_interface.py` | `ModelClient` — WebSocket client that talks to the policy server. |
-| `examples/LIBERO/eval_files/install_libero.sh` | Installs the `libero` client env (MuJoCo, LIBERO editable install, …). |
-| `deployment/model_server/server_policy.py` | Policy server (bf16, WebSocket) loaded inside the `starvla` env. |
-| `assets/scenes/selected_bddl_scenes_*` | Scene libraries — restored from `LIBERO_Recovery_Assets` (§2). |
-| `LIBERO/` | LIBERO checkout (`LIBERO_HOME`) used by the client env. |
-| `LIBERO/eval_result/custom_scene/` | Default output root (`LOG_PATH`). |
+```bash
+# one suite of the recovery library (includes its L4 scenes)
+--scene_dir "$STARVLA/benchmark_failure/scenes/libero_spatial"
 
-## 4. Environment setup
+# curated library (launcher default)
+--scene_dir "$STARVLA/assets/scenes/selected_bddl_scenes_spatial"
+```
 
-### Prerequisites
+### 3.2 One recovery level only
 
-- **NVIDIA GPU(s)** with a recent driver — the policy server runs in bf16 on CUDA, and
-  the client renders MuJoCo **off-screen via EGL** (`MUJOCO_GL=egl`,
-  `PYOPENGL_PLATFORM=egl` are set by the launcher). Headless machines need EGL/GLES
-  libraries available (usually already installed with the NVIDIA driver).
-- **conda** (miniconda or anaconda, any location).
-- **Disk** — each rollout writes two ~520-frame MP4s plus an `.npz`; a full
-  30-scene × 10-trial run produces ~300 episodes per model.
+The client reads folders, not indices — materialize a suite × level subset as a
+symlink tree first:
 
-### The two conda envs
+```bash
+python benchmark_failure/make_level_subset.py \
+  --suite libero_90 --level L4 \
+  --out "$STARVLA/benchmark_failure/subsets/libero_90_L4"
+# -> 196 scenes; then
+bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh \
+  --scene_dir "$STARVLA/benchmark_failure/subsets/libero_90_L4"
+```
 
-The launcher uses exactly two environments (both Python 3.10, torch 2.6.0+cu124):
+`--suite` / `--level` accept comma lists (`--level L1,L2`) or `any`.
 
-| Env | Used by | What it needs |
+### 3.3 Full command
+
+```bash
+bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh [flags]
+```
+
+### 3.4 Recipes
+
+```bash
+# one model only
+--algorithms our_refined_model
+
+# two models, all scenes, single GPU
+--algorithms model_a,model_b --num_scenes 0 --gpus 0
+
+# stronger perturbation, more rollouts per scene
+--obj_noise_xy 0.05 --num_close_trials 10 --num_open_trials 10
+
+# separate log folder per experiment
+--log_path "$STARVLA/LIBERO/eval_result/libero_goal_L4"
+
+# per-model wall-clock cap in seconds (0 = unlimited)
+--eval_timeout_seconds 7200
+```
+
+### 3.5 Flags
+
+| Flag | Default | Meaning |
 |---|---|---|
-| `starvla` | Policy server (`server_policy.py`) | starVLA + its `requirements.txt` (transformers 4.57, flash-attn, …) — see [§4.1](#41-server-env-starvla) |
-| `libero` | Eval client (`eval_libero_custom_scene.py`) | MuJoCo 3.2.3, LIBERO (editable), tyro, websockets, imageio, numpy 1.24.4 — see [§4.2](#42-client-env-libero) |
+| `--algorithms` | `all` | `all`, or comma-separated subset of `CHECKPOINTS_PATH` keys |
+| `--scene_dir` | launcher's `SCENE_DIR` | Root folder globbed recursively for `*.bddl` |
+| `--gpus` | `0,1` | GPU ids; servers assigned round-robin |
+| `--base_port` | `9885` | First server port; auto-bumped if occupied |
+| `--seed` | `7` | Master seed — scene sampling + perturbations |
+| `--retry_times` | `3` | Retries per eval job on non-zero exit |
+| `--num_steps_wait` | `0` | Extra dummy steps before policy control |
+| `--num_scenes` | `30` | Scenes sampled (seeded); `0` = all |
+| `--num_close_trials` | `5` | Rollouts per scene, gripper starts closed |
+| `--num_open_trials` | `5` | Rollouts per scene, gripper starts open |
+| `--obj_noise_xy` | `0.02` | Max xy perturbation per free-joint object (m) |
+| `--gripper_settle_steps` | `20` | Steps to drive gripper to initial state |
+| `--server_works_per_model` | `2` | Policy servers per model |
+| `--server_warmup_seconds` | `60` | Fixed wait before polling servers |
+| `--server_ready_timeout_seconds` | `1800` | Give-up window for server startup |
+| `--eval_timeout_seconds` | `0` | Per-job wall-clock cap via `timeout` |
+| `--log_path` | launcher's `LOG_PATH` | Output root |
 
-#### 4.1 Server env (`starvla`)
+### 3.6 Per-scene protocol
 
-Created once from the starVLA repo root:
+Each scene runs `num_close_trials + num_open_trials` rollouts (default 5+5):
 
-```bash
-cd "$STARVLA"
-conda create -n starvla python=3.10 -y
-conda activate starvla
-pip install -r requirements.txt
-pip install flash-attn --no-build-isolation
-pip install -e .
-```
+| Stage | What happens | Default |
+|---|---|---|
+| Load | Env built from `.bddl`; recorded state loaded into an **in-memory copy** (on-disk files never modified) | — |
+| Perturb | Fresh uniform xy offset on every *free-joint* object (hinge/slide joints such as drawers never touched) | ±2 cm |
+| Restore | Perturbed state set as init state; OSC goal re-anchored to current EEF pose | — |
+| Settle | Gripper *driven* (not teleported) to target opening via zero-delta arm actions | 20 steps |
+| Roll out | Policy controls robot; success = env `done` fires | ≤520 steps |
+| Record | Agentview + wrist MP4s, `.npz` episode, timing metrics | always |
 
-The server loads checkpoints directly by path, so keep model weights anywhere on disk;
-HuggingFace access is **forced offline** by the launcher (`HF_HUB_OFFLINE=1`, …) — make
-sure any base-model artifacts are already in `~/.cache/huggingface`.
+Notes: closed-grip starts are out-of-distribution for most LIBERO-trained
+policies — success is reported per `close`/`open` split and overall; scene
+sampling, perturbations and env placement retries all derive from `--seed`
+(runs are reproducible); tight custom regions can fail LIBERO's placement
+sampler — the client reseeds and retries ≤12×.
 
-#### 4.2 Client env (`libero`)
+## 4. Configure the launcher
 
-Use the provided installer, which activates the env (create it first if it does not
-exist yet), pins MuJoCo/numpy, clones LIBERO as an editable install, and verifies the
-imports:
+Edit the **User-configurable parameters** block at the top of
+`examples/LIBERO/eval_files/eval_libero_custom_scene.sh`:
 
-```bash
-cd "$STARVLA"
-conda create -n libero python=3.10 -y        # only if not already present
-LIBERO_DIR="$STARVLA/LIBERO" bash examples/LIBERO/eval_files/install_libero.sh
-```
-
-`LIBERO_DIR` controls where the LIBERO checkout is cloned (default `$HOME/LIBERO`); the
-launcher's `LIBERO_HOME` variable must point at the same checkout (§6).
-
-### Quick sanity check
-
-```bash
-conda activate libero
-python -c "from libero.libero.envs import OffScreenRenderEnv; print('client OK')"
-conda activate starvla
-python -c "import flash_attn, transformers; print('server OK')"
-```
-
-## 5. Preparing your scenes
-
-Point `--scene_dir` at any folder of scene pairs. The client globs `*.bddl`
-**recursively** and pairs each with its sibling `<stem>_sim_state.npy`; a missing `.npy`
-skips that scene with a warning. Real layout inside `selected_bddl_scenes_spatial`:
-
-```
-selected_bddl_scenes_spatial/
-└── pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate/
-    ├── episode_000/
-    │   ├── step_0180.bddl              # task definition (:language line = instruction)
-    │   ├── step_0180_sim_state.npy     # flattened MuJoCo state saved at that step
-    │   ├── step_0200.bddl
-    │   └── step_0200_sim_state.npy
-    ├── episode_003/
-    └── ...
-```
-
-- The task instruction is parsed from the `(:language …)` line in the `.bddl`
-  (see [`docs/example_bddl.snippet`](docs/example_bddl.snippet)).
-- If the directory holds more scenes than `--num_scenes`, a seeded sample is drawn and
-  the rest are skipped (set `--num_scenes 0` to evaluate everything).
-- Scene tags in the outputs are the `.bddl` path relative to `scene_dir` with
-  `/` → `__` (e.g. `pick_up_the_black_bowl_…__episode_000__step_0180`).
-- Your own scenes work too — drop any `*.bddl` + `*_sim_state.npy` pairs into a folder
-  and pass `--scene_dir`; nothing else in the pipeline is LIBERO-suite-specific.
-
-## 6. Configure the launcher
-
-The top of `eval_libero_custom_scene.sh` has a **User-configurable parameters** block.
-Edit these to match your machine before the first run:
-
-| Variable | Set it to |
+| Variable | Set to |
 |---|---|
 | `CONDA_SH` | `<your conda>/etc/profile.d/conda.sh` |
-| `SERVER_ENV` / `CLIENT_ENV` | Names of the two envs from §4 (default `starvla` / `libero`) |
-| `STARVLA_PATH` | Absolute path of the starVLA repo root |
-| `LIBERO_HOME` | Absolute path of the LIBERO checkout used by the client env |
-| `SCENE_DIR` | Default scene library (can be overridden per run with `--scene_dir`) |
-| `LOG_PATH` | Output root for videos / summaries / datasets |
-| `GPUS_CSV`, `BASE_PORT` | GPUs to use and the first server port |
-| `CHECKPOINTS_PATH` | Model name → checkpoint path map (see §7) |
+| `SERVER_ENV` / `CLIENT_ENV` | env names from §1 (default `starvla` / `libero`) |
+| `STARVLA_PATH` | absolute path of repo root |
+| `LIBERO_HOME` | absolute path of the LIBERO checkout |
+| `SCENE_DIR` | default scene library (overridable per run via `--scene_dir`) |
+| `LOG_PATH` | output root |
+| `GPUS_CSV`, `BASE_PORT` | GPUs to use, first server port |
+| `CHECKPOINTS_PATH` | model name → checkpoint path (§5) |
 
-Everything below the block is protocol configuration with sensible defaults and
-matching command-line flags (§8).
+## 5. Registering models
 
-## 7. Registering models
-
-Models are declared in the launcher's associative array — the key is the algorithm name
-(used for output folders and `--algorithms`), the value the checkpoint path:
+In the launcher's associative array — key = algorithm name (output folders,
+`--algorithms`), value = checkpoint path:
 
 ```bash
 declare -A CHECKPOINTS_PATH=(
-  #["Qwen3-VL-PI-LIBERO-4in1"]="<path>/Qwen3-VL-PI-LIBERO-4in1/checkpoints/steps_50000_pytorch_model.pt"
-  #["WM4A-Wan2d2-OFT-LIBERO-4in1"]="<path>/WM4A-Wan2d2-OFT-LIBERO-4in1/checkpoints/steps_60000_pytorch_model.pt"
+  #["Qwen3-VL-PI-LIBERO-4in1"]="<path>/checkpoints/steps_50000_pytorch_model.pt"
   ["our_refined_model"]="<path>/checkpoints/steps_50000_pytorch_model.pt"
 )
 ```
 
-- `--algorithms all` (default) evaluates every uncommented entry.
-- A missing checkpoint file aborts the run before any server starts.
-- Each model gets its own policy server(s) and its own output folder — models never
-  share state.
+Missing checkpoint file → run aborts before any server starts. Each model gets
+its own server(s) and output folder.
 
-## 8. Usage
-
-### Quickstart
-
-```bash
-cd "$STARVLA"
-bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh
-```
-
-That runs every registered model with the defaults (30 sampled scenes × 10 trials on
-GPUs 0,1). Add `--help` to see the flag list.
-
-### Common recipes
-
-```bash
-# One model only
-bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh --algorithms our_refined_model
-
-# Two models, all scenes, single GPU
-bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh \
-  --algorithms model_a,model_b --num_scenes 0 --gpus 0
-
-# Stress test: stronger perturbation, more rollouts per scene
-bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh \
-  --obj_noise_xy 0.05 --num_close_trials 10 --num_open_trials 10
-
-# Evaluate a different scene library into a separate log folder
-bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh \
-  --scene_dir "$STARVLA/assets/scenes/selected_bddl_scenes_goal" \
-  --log_path  "$STARVLA/LIBERO/eval_result/custom_scene_goal"
-
-# Hard per-model wall-clock limit (seconds; 0 = unlimited)
-bash examples/LIBERO/eval_files/eval_libero_custom_scene.sh --eval_timeout_seconds 7200
-```
-
-### Flag reference
-
-| Flag | Default | Meaning |
-|---|---|---|
-| `--algorithms` | `all` | `all`, or a comma-separated subset of `CHECKPOINTS_PATH` keys |
-| `--scene_dir` | `$STARVLA/assets/scenes/selected_bddl_scenes_spatial` (launcher's `SCENE_DIR`) | Root folder globbed recursively for `*.bddl` |
-| `--gpus` | `0,1` | Comma-separated GPU ids; servers are assigned round-robin |
-| `--base_port` | `9885` | First server port; bumped automatically if occupied (9883/9884 are reserved for sibling launchers) |
-| `--seed` | `7` | Master seed — scene sampling + all perturbations |
-| `--retry_times` | `3` | Retries per eval job on non-zero exit (so up to 4 attempts) |
-| `--num_steps_wait` | `0` | Extra dummy steps before policy control (object settling) |
-| `--num_scenes` | `30` | Sample this many scenes (seeded); `0` = all discovered |
-| `--num_close_trials` | `5` | Rollouts per scene starting gripper-closed |
-| `--num_open_trials` | `5` | Rollouts per scene starting gripper-open |
-| `--obj_noise_xy` | `0.02` | Max xy perturbation per free-joint object (metres) |
-| `--gripper_settle_steps` | `20` | Steps used to drive the gripper to its initial state |
-| `--server_works_per_model` | `2` | Policy servers started per model (round-robin over GPUs; the client uses the first) |
-| `--server_warmup_seconds` | `60` | Fixed wait before polling servers for readiness |
-| `--server_ready_timeout_seconds` | `1800` | Give up if a server is not listening within this window |
-| `--eval_timeout_seconds` | `0` | Per-job wall-clock cap via `timeout` (0 = unlimited) |
-| `--log_path` | `$STARVLA/LIBERO/eval_result/custom_scene` (launcher's `LOG_PATH`) | Output root |
-
-Everything lives inside one run: servers are killed automatically on exit (including
-Ctrl-C) via a cleanup trap, so the launcher never orphans GPU processes.
-
-## 9. Outputs & metrics
-
-Per run, `LOG_PATH` fills up like this:
+## 6. Outputs
 
 ```
 <LOG_PATH>/
-├── eval_summary.txt                          # aggregated status + final scores, all models
-├── .tmp_eval_custom_scene_<timestamp>/       # launcher scratch: server logs, eval logs, progress.tsv
-└── <model_name>/custom_scene/
-    ├── scene_summary.json                    # per-scene + overall / close / open rates
-    ├── <scene_tag>/
-    │   ├── rollout_trial0_close_success.mp4          # agentview, 20 fps
-    │   ├── rollout_trial0_close_success_wrist.mp4    # wrist cam
-    │   └── … (one pair per trial; filename ends _success / _failure)
+├── eval_summary.txt                          # aggregated status + scores, all models
+├── .tmp_eval_custom_scene_<timestamp>/       # server/eval logs, progress.tsv
+└── <model>/custom_scene/
+    ├── scene_summary.json                    # overall / close / open rates + per-scene
+    ├── <scene_tag>/rollout_trial<i>_{close,open}_{success,failure}[_wrist].mp4
     ├── logs/
     └── dataset/raw/
-        ├── manifest.jsonl                    # one line per episode (see docs/example_manifest.jsonl)
-        └── episode_000000.npz …              # images, wrist, states, actions, obj_deltas, …
+        ├── manifest.jsonl                    # per-episode metadata
+        └── episode_*.npz                     # images, wrist, states, actions, obj_deltas
 ```
 
-**`scene_summary.json`** — top-level `overall_rate`, `close_rate`, `open_rate` over all
-episodes plus a per-scene breakdown (a trimmed real example is in
-[`docs/example_scene_summary.json`](docs/example_scene_summary.json)). The line
-`Current total success rate: <x>` in the eval log is what the launcher greps for the
-aggregate.
+Key files:
 
-**`manifest.jsonl`** — per-episode metadata: task, scene tag, trial index,
-`gripper_init`, success, applied `obj_deltas` per object, and two timing signals useful
-for recovery analysis:
+- **`scene_summary.json`** — `overall_rate`, `close_rate`, `open_rate` + per-scene
+  breakdown. Example: [`docs/example_scene_summary.json`](docs/example_scene_summary.json).
+- **`manifest.jsonl`** — task, scene tag, trial, `gripper_init`, success, applied
+  `obj_deltas`, plus `first_contact_step` (EEF force deviates >2.0 from baseline)
+  and `first_gripper_change_step` (policy gripper command flips) for recovery
+  analysis. Example: [`docs/example_manifest.jsonl`](docs/example_manifest.jsonl).
+- **`episode_*.npz`** — `images`, `wrist_images`, `states` (EEF pos + axis-angle +
+  finger qpos), `actions` (7-DoF deltas, gripper `0=close, 1=open`),
+  `task_description`, `scene`, `gripper_init`, `obj_deltas`, timing signals.
+  Convert to LeRobot format: `examples/LIBERO/eval_files/convert_eval_to_lerobot.py`.
 
-- `first_contact_step` — first step where the EEF force deviates from the baseline by
-  more than 2.0 (norm of the force delta), i.e. when the arm first touches anything;
-- `first_gripper_change_step` — first step where the policy's gripper command flips.
+## 7. Scene data reference
 
-**`episode_*.npz`** — `images`, `wrist_images`, `states` (EEF pos + axis-angle + finger
-qpos), `actions` (7-DoF deltas; gripper converted to the dataset convention
-`0 = close, 1 = open`), `task_description`, `scene`, `gripper_init`, `obj_deltas`, and
-the two timing signals. This drops straight into downstream dataset tooling (see
-`examples/LIBERO/eval_files/convert_eval_to_lerobot.py` to convert to LeRobot format).
+**Levels** — the VLM assigns the minimum intervention needed to resume the task:
 
-## 10. How the launcher works
+| Level | Name | Minimum intervention |
+|---|---|---|
+| L1 | Action Retry | re-execute the previous action (scene barely changed) |
+| L2 | Action Adaptation | adapt the motion (object pose shifted, still usable) |
+| L3 | Object State Recovery | restore a task object first (dropped / tipped / out of workspace) |
+| L4 | Environmental Recovery | remove an **unrelated** obstructing object first |
 
-1. Parses flags, resolves the algorithm set, validates `scene_dir` and every checkpoint.
-2. Starts `server_works_per_model` policy servers per model with
-   `conda run -n starvla python deployment/model_server/server_policy.py --ckpt_path …
-   --port … --use_bf16`, assigning GPUs round-robin from `--gpus` and ports from
-   `--base_port` (auto-bumped past anything already listening).
-3. Sleeps `server_warmup_seconds`, then polls each server until it logs
-   `server listening on …` (or its port opens), up to `server_ready_timeout_seconds`.
-4. Launches one eval client per model (`conda run -n libero python
-   examples/LIBERO/eval_files/eval_libero_custom_scene.py …`) in the background; a
-   monitor thread prints `done=x/N` progress every 2 s.
-5. On non-zero client exit, retries up to `retry_times`; records `OK/FAIL` plus the
-   grepped success rate into `progress.tsv`.
-6. Aggregates everything into `eval_summary.txt` and exits (killing all servers).
+**Statistics** (4,803 scenes = 4,338 VLM-annotated dumps + 465 constructed L4;
+L4 total 474 includes 9 natural):
 
-Environment the launcher exports before anything runs:
-`HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, `HF_DATASETS_OFFLINE=1`, `HF_HOME`,
-`TRANSFORMERS_CACHE`, `LIBERO_HOME`, `LIBERO_CONFIG_PATH`, `MUJOCO_GL=egl`,
-`PYOPENGL_PLATFORM=egl`, `PYTHONPATH=$LIBERO_HOME:$STARVLA_PATH`.
+| Suite | L1 | L2 | L3 | L4 | total |
+|---|---:|---:|---:|---:|---:|
+| libero_spatial | 3 | 129 | 120 | 17 | 269 |
+| libero_object | 147 | 794 | 34 | 164 | 1,139 |
+| libero_goal | 11 | 354 | 148 | 49 | 562 |
+| libero_10 | 11 | 473 | 194 | 48 | 726 |
+| libero_90 | 120 | 871 | 920 | 196 | 2,107 |
+| **total** | **292** | **2,621** | **1,416** | **474** | **4,803** |
 
-## 11. Troubleshooting
+**Provenance** — scenes were dumped from rollouts of two 4-in-1 checkpoints
+(`Qwen3-VL-PI-LIBERO-4in1`, `Qwen3-VL-PI-V2-LIBERO-4in1`) at failure-relevant
+steps, annotated by Qwen3-VL-27B in two passes (episode fail-steps → scene
+level). Constructed L4 scenes (`l4i_step_*`) inject an obstruction onto/beside a
+task object in a real snapshot, settled with the robot frozen, kept only if the
+obstruction physically contacts the task object and survives a replay of the
+exact eval load path (11 rejected → `l4i_dropped.txt`).
 
-| Symptom | Cause / fix |
+**Annotation fields** (`annotations/scenes/<suite>/<scene_id>.json`, same fields
+in each `selection.jsonl` row):
+
+```jsonc
+{
+  "scene_id": "libero_90__STUDY_SCENE1_…__step0340",   // l4_injected__ prefix = constructed L4
+  "source": "libero_90",                // suite
+  "task": "pick up the book and place it in the right compartment of the caddy",
+  "npz_path": "LIBERO/eval_result/…/episode_….npz",    // rollout the scene came from
+  "scene_dir": "benchmark_failure/scenes/libero_90/…/episode_…036",
+  "step": 340, "stage": "post-fail",    // pre-fail / mid-fail (|step−fail|≤20) / post-fail
+  "fail_steps": [80],
+  "first_contact_step": 58, "first_gripper_change_step": 60,
+  "level": "L3",
+  "level_reason": "…", "level_confidence": 0.85, "vlm_model": "…/Qwen3VL-27B"
+  // L4 scenes add an "injection" block: strategy, object pair, placement, validity
+}
+```
+
+**Instruction** for a scene = the `(:language …)` line of its `.bddl`
+([example](docs/example_bddl.snippet)).
+
+## 8. Scene-data pipeline scripts
+
+[`benchmark_failure/`](benchmark_failure/) (run in the `libero` env, EGL):
+
+| Script | Role |
 |---|---|
-| `[ERROR] scene_dir does not exist` | Bad `--scene_dir` (or assets not downloaded yet, §2); must be a readable directory containing `*.bddl` somewhere below it. |
-| `[ERROR] Checkpoint not found` | A `CHECKPOINTS_PATH` entry points at a missing file — fix or comment it out. |
-| `RandomizationError` / placement failed warnings | Expected occasionally on tight custom scenes; the client reseeds and retries (≤12×). A scene is only skipped if *all* attempts fail — check `num_evaluated` in `scene_summary.json`. |
-| EGL errors (`Failed to create OpenGL context`, `GLXBadDrawable`) | EGL not available on that node. Verify `echo $MUJOCO_GL` is `egl` inside the launcher env, check NVIDIA driver EGL libs (`ldconfig -p \| grep EGL`), or run on a GPU node with a display-less-capable driver. |
-| `server ready timeout` | Inspect `<LOG_PATH>/.tmp_eval_custom_scene_*/server_<sid>.log` (tail is printed). Usually GPU OOM from leftover processes — `nvidia-smi`, kill stragglers, or lower `--server_works_per_model`. |
-| `port_in_use` loops / servers collide | Another launcher is running. Ports 9883/9884 belong to sibling scripts; pick a fresh `--base_port` for concurrent runs. |
-| `score=nan` / `FAIL` rows in `eval_summary.txt` | The client exited non-zero after all retries — read `<LOG_PATH>/.tmp_eval_custom_scene_*/eval_<algo>_custom_scene.log`. |
-| HF connection attempts / slow startup | The launcher forces offline mode; the server's base model must already be in the local HF cache (`~/.cache/huggingface`). |
+| `run_l4i.sh` | End-to-end L4 construction: selection → 4-GPU injection → verification |
+| `l4i_inject.py` | Inject an obstruction into a real snapshot; settle; write scene + provenance |
+| `l4i_eval_check.py` | Verify via exact eval load path replay (t0 obstruction check) |
+| `vlm_annotate.py` | Two-pass VLM annotation (fail-steps, levels) |
+| `build_index.py` | Rebuild `index/scenes_index.jsonl` |
+| `make_level_subset.py` | Suite × level symlink subset (§3.2) |
+| `l4i_integrate.py` / `l4i_merge.py` | Integrate constructed L4 into suite trees / indices |
+| `make_release_datasets.py` | Package the ModelScope datasets |
+
+Paths default to the authors' layout; override with `STARVLA_ROOT` / `L4I_*`
+env vars (see each script's docstring).
+
+## 9. Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `[ERROR] scene_dir does not exist` | Bad `--scene_dir`, or data not downloaded (§2) |
+| `[ERROR] Checkpoint not found` | `CHECKPOINTS_PATH` entry points at missing file — fix or comment out |
+| `RandomizationError` / placement failed | Normal on tight scenes; client retries ≤12×. Scene skipped only if all attempts fail — check `num_evaluated` in `scene_summary.json` |
+| EGL errors (`Failed to create OpenGL context`, `GLXBadDrawable`) | Check NVIDIA EGL libs (`ldconfig -p \| grep EGL`); run on a driver with headless EGL support |
+| `server ready timeout` | Read `<LOG_PATH>/.tmp_*/server_<sid>.log` (tail auto-printed). Usually GPU OOM from leftover processes — `nvidia-smi`, kill stragglers, or lower `--server_works_per_model` |
+| `port_in_use` loops | Another launcher running; use a fresh `--base_port` (9883/9884 belong to sibling scripts) |
+| `score=nan` / `FAIL` rows | Client exited non-zero after retries — read `<LOG_PATH>/.tmp_*/eval_<algo>_custom_scene.log` |
+| HF connection attempts / slow startup | Launcher forces offline; put the base model in `~/.cache/huggingface` first |
 
 ---
 
-*Companion scripts: `eval_libero_custom_bddl.sh` (same idea, bddl-file protocol without
-the gripper split) and `eval_libero.sh` (standard LIBERO suites). This launcher shares
-no ports or log paths with them, so they can run concurrently.*
+*Companion scripts: `eval_libero_custom_bddl.sh` (bddl-file protocol, no gripper
+split) and `eval_libero.sh` (standard LIBERO suites) — separate ports/log paths,
+safe to run concurrently.*
