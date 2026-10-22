@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+flash-attention-turing/
+flash_attn/
+.vscode/
+
+
+starVLA.egg-info/
+LIBERO/libero.egg-info/
+
+
+# LIBERO_Recovery_FailureScenes -> benchmark_failure/
+benchmark_failure/annotations/
+benchmark_failure/index/
+benchmark_failure/scenes/
+benchmark_failure/subsets/
+benchmark_failure/dataset_infos.json
+benchmark_failure/.gitattributes
+benchmark_failure/README.md
+
+# LIBERO_Recovery_Assets -> assets/scenes/
+assets/scenes/
+
+# LIBERO_Recovery_Expert / LIBERO_10_LL -> datasets/
+datasets/
+
+LIBERO/eval_result/

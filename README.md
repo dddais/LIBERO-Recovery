@@ -1,18 +1,52 @@
+<div align="center">
+
 # LIBERO-Recovery
 
-> **Data release: all scenes, annotations and rollouts are being published on
-> ModelScope — everything will be downloadable by 2026-10-20.**
+**A Failure-Recovery Benchmark for Vision-Language-Action (VLA) Policies**
 
-Failure-recovery benchmark for VLA policies on the five LIBERO suites: **4,803
-annotated failure scenes** (recovery level L1–L4) + a one-script evaluation
-protocol (fresh ±2 cm object perturbation per rollout, half the rollouts start
-gripper-closed).
+4,803 annotated failure scenes (recovery levels L1–L4) across the five LIBERO
+suites, plus a reproducible single-script evaluation protocol.
 
-> `$STARVLA` below = this repo's root on *your* machine (`export
-> STARVLA=~/starVLA` after cloning). All machine-specific paths live in one
-> *User-configurable parameters* block at the top of the launcher script.
+[![arXiv](https://img.shields.io/badge/arXiv-2609.05178-b31b1b.svg)](https://arxiv.org/abs/2609.05178)
+[![Project Page](https://img.shields.io/badge/Project-Page-2ea44f.svg)](https://liulin815.github.io/LIBERO-Recovery/#)
+[![Dataset](https://img.shields.io/badge/Dataset-ModelScope-6f42c1.svg)](https://www.modelscope.cn/datasets/ataier/LIBERO_Recovery_Expert)
+[![Python](https://img.shields.io/badge/Python-3.10-3776ab.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.6.0%2Bcu124-ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
+
+[📄 Paper](https://arxiv.org/abs/2609.05178) ·
+[🌐 Project Page](https://liulin815.github.io/LIBERO-Recovery/#) ·
+[🗂️ Dataset](https://www.modelscope.cn/datasets/ataier/LIBERO_Recovery_Expert) ·
+[🚀 Quickstart](#quickstart)
+
+<img src="assets/figures/Overview.png" width="92%" alt="LIBERO-Recovery Overview"/>
+
+</div>
+
+> **📦 Data release**: all scenes, annotations and rollouts are now available on
+> ModelScope (see [§2 Data download](#2-data-download)).
+
+LIBERO-Recovery asks not *whether* a policy can complete a task, but **how little
+intervention is needed to get it back on track after a failure**. We dump failures
+that actually occur during policy rollouts as replayable scenes and categorize them
+by the strength of intervention required — making recovery ability a measurable,
+comparable quantity.
+
+## ✨ Highlights
+
+| Feature | Description |
+|---|---|
+| 🧩 **4,803 real failure scenes** | Covering all five suites (`libero_spatial` / `object` / `goal` / `10` / `90`), dumped from real rollouts of two 4-in-1 policies |
+| 📐 **Four-level recovery taxonomy** | **L1** Action Retry → **L2** Action Adaptation → **L3** Object State Recovery → **L4** Environmental Recovery, with increasing intervention cost |
+| 🎯 **Reproducible protocol** | Fresh ±2 cm object perturbation on every rollout; half start gripper-closed; scene sampling, perturbations and retries are all driven by `--seed` |
+| 🧰 **Ready-to-use companion data** | Expert demos (LeRobot format), pre-failure history episodes, 1,446 raw rollouts, and the full scene-construction pipeline |
 
 ## Quickstart
+
+Four steps: **set up → download → evaluate → inspect results**.
+
+> `$STARVLA` below = this repo's root on *your* machine (`export
+> STARVLA=~/LIBERO-Recovery` after cloning). All machine-specific paths live in one
+> *User-configurable parameters* block at the top of the launcher script.
 
 ```bash
 # 1. envs (details: §1)
@@ -66,11 +100,11 @@ pip install -U modelscope
 
 | Dataset (org `ataier`) | Contents | Download to | Needed for |
 |---|---|---|---|
-| `LIBERO_Recovery_FailureScenes` | 4,803 scenes (bddl+npy), annotations, indices | `$STARVLA/benchmark_failure/` | ✅ running the benchmark |
-| `LIBERO_Recovery_Assets` | 880 curated scenes (launcher default) | `$STARVLA/assets/scenes/` | optional |
-| `LIBERO_Recovery_Expert` | expert demos, LeRobot format | `$STARVLA/datasets/` | training only |
-| `LIBERO_10_LL` | pre-failure history episodes | `$STARVLA/datasets/` | training only |
-| `LIBERO_Recovery_Rollouts` | 1,446 raw `.npz` rollouts, 80 GB | `$STARVLA/` | reproducibility only |
+| [`LIBERO_Recovery_FailureScenes`](https://www.modelscope.cn/datasets/ataier/LIBERO_Recovery_FailureScenes) | 4,803 scenes (bddl+npy), annotations, indices | `$STARVLA/benchmark_failure/` | ✅ running the benchmark |
+| [`LIBERO_Recovery_Assets`](https://www.modelscope.cn/datasets/ataier/LIBERO_Recovery_Assets) | 880 curated scenes (launcher default) | `$STARVLA/assets/scenes/` | optional |
+| [`LIBERO_Recovery_Expert`](https://www.modelscope.cn/datasets/ataier/LIBERO_Recovery_Expert) | expert demos, LeRobot format | `$STARVLA/datasets/` | training only |
+| [`LIBERO_10_LL`](https://www.modelscope.cn/datasets/ataier/LIBERO_10_LL) | pre-failure history episodes | `$STARVLA/datasets/` | training only |
+| [`LIBERO_Recovery_Rollouts`](https://www.modelscope.cn/datasets/ataier/LIBERO_Recovery_Rollouts) | 1,446 raw `.npz` rollouts, 80 GB | `$STARVLA/` | reproducibility only |
 
 ```bash
 modelscope download --dataset ataier/LIBERO_Recovery_FailureScenes --local_dir "$STARVLA/benchmark_failure"
