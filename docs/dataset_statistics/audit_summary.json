@@ -1,0 +1,81 @@
+{
+  "checked_on": "2026-10-29",
+  "official_repository": "ataier/LIBERO_Recovery_Expert",
+  "official_revision": "2804e989adfb49cdde9b5c04bc7e0fb9f4fbfc73",
+  "metadata_sha256": {
+    "info.json": "43e108cca7d53bebd485f2f68f67fd40dcefbb32e514e52b8ac47abef7d6ec68",
+    "tasks.jsonl": "fd7b25adf5e184a79a14498683e80ea148935ee579663236651e0b000784e0e8",
+    "episodes.jsonl": "25d059eb3b69a30026c30b16cd1330595d66c879ca7a0b21eec5d41977718942"
+  },
+  "official_task_indices": 110,
+  "unique_raw_instructions": 78,
+  "total_episodes": 3184,
+  "total_frames": 625731,
+  "singleframe_episodes": 373,
+  "multiframe_episodes": 2811,
+  "featured_recovery_ids_match_exact_multiframe_subset": true,
+  "featured_arrays_validation": {
+    "stats": {
+      "standard": {
+        "episodes": 500,
+        "frames": 81383,
+        "counts": {
+          "0": 50,
+          "1": 50,
+          "2": 50,
+          "3": 50,
+          "4": 50,
+          "5": 50,
+          "6": 50,
+          "7": 50,
+          "8": 50,
+          "9": 50
+        },
+        "task_frames": {
+          "0": 6893,
+          "1": 9994,
+          "2": 10512,
+          "3": 7156,
+          "4": 6415,
+          "5": 7553,
+          "6": 7885,
+          "7": 9008,
+          "8": 8801,
+          "9": 7166
+        }
+      },
+      "recovery": {
+        "episodes": 318,
+        "frames": 78361,
+        "counts": {
+          "0": 40,
+          "1": 25,
+          "2": 25,
+          "3": 20,
+          "4": 20,
+          "5": 25,
+          "6": 20,
+          "7": 20,
+          "8": 33,
+          "9": 90
+        },
+        "task_frames": {
+          "0": 5993,
+          "1": 8492,
+          "2": 9272,
+          "3": 3428,
+          "4": 4152,
+          "5": 7388,
+          "6": 2545,
+          "7": 10647,
+          "8": 8376,
+          "9": 18068
+        }
+      }
+    },
+    "errors": [],
+    "arrays": 2454,
+    "state_action_checksums_verified": 1636
+  },
+  "note": "Official membership checked by episode IDs, exact raw instructions and lengths. Full upstream video/array equality was not checked."
+}

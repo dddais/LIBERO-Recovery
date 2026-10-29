@@ -1,0 +1,11 @@
+﻿task_index,suite,task_id,description_zh,official_task_language,expert_raw_instruction,expert_raw_episodes,expert_singleframe_excluded,standard_episodes,recovery_episodes,total_episodes,standard_frames,recovery_frames,total_frames
+0,libero_90,KITCHEN_SCENE2_put_the_black_bowl_at_the_front_on_the_plate,前方黑碗放到盘子上,put the black bowl at the front on the plate,put the black bowl at the front on the plate,40,0,50,40,90,6893,5993,12886
+1,libero_90,KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet_and_put_the_bowl_in_it,打开上层抽屉并放入碗,open the top drawer of the cabinet and put the bowl in it,open the top drawer of the cabinet and put the bowl in it,25,0,50,25,75,9994,8492,18486
+2,libero_90,KITCHEN_SCENE5_put_the_ketchup_in_the_top_drawer_of_the_cabinet,番茄酱放入上层抽屉,put the ketchup in the top drawer of the cabinet,put the ketchup in the top drawer of the cabinet,25,0,50,25,75,10512,9272,19784
+3,libero_90,KITCHEN_SCENE1_open_the_bottom_drawer_of_the_cabinet,打开底层抽屉,open the bottom drawer of the cabinet,open the bottom drawer of the cabinet,20,0,50,20,70,7156,3428,10584
+4,libero_90,KITCHEN_SCENE2_stack_the_black_bowl_at_the_front_on_the_black_bowl_in_the_middle,前方黑碗叠到中间黑碗上,stack the black bowl at the front on the black bowl in the middle,stack the black bowl at the front on the black bowl in the middle,20,0,50,20,70,6415,4152,10567
+5,libero_90,KITCHEN_SCENE3_put_the_moka_pot_on_the_stove,摩卡壶放到炉灶上,put the moka pot on the stove,put the moka pot on the stove,25,0,50,25,75,7553,7388,14941
+6,libero_90,LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate,白色马克杯放到盘子上,put the white mug on the plate,put the white mug on the plate,20,0,50,20,70,7885,2545,10430
+7,libero_90,KITCHEN_SCENE10_put_the_butter_at_the_front_in_the_top_drawer_of_the_cabinet_and_close_it,前方黄油放入上层抽屉并关闭,put the butter at the front in the top drawer of the cabinet and close it,put the butter at the front in the top drawer of the cabinet and close it,20,0,50,20,70,9008,10647,19655
+8,libero_goal,put_the_wine_bottle_on_the_rack,葡萄酒瓶放到酒架上,put the wine bottle on the rack,put the wine bottle on the rack,33,0,50,33,83,8801,8376,17177
+9,libero_object,pick_up_the_cream_cheese_and_place_it_in_the_basket,奶油奶酪放入篮子,pick up the cream cheese and place it in the basket,pick the cream cheese and place it in the basket,91,1,50,90,140,7166,18068,25234
