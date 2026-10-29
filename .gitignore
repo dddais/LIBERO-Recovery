@@ -27,3 +27,6 @@ assets/scenes/
 datasets/
 
 LIBERO/eval_result/
+
+__pycache__/
+*.py[cod]

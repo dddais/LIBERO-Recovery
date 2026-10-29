@@ -82,6 +82,12 @@ Two conda envs, both Python 3.10 / torch 2.6.0+cu124:
 | `starvla` | policy server | `conda create -n starvla python=3.10 -y` → activate → `pip install -r requirements.txt && pip install flash-attn --no-build-isolation && pip install -e .` |
 | `libero` | eval client | `conda create -n libero python=3.10 -y` → `LIBERO_DIR="$STARVLA/LIBERO" bash examples/LIBERO/eval_files/install_libero.sh` |
 
+The LIBERO installer uses `examples/LIBERO/eval_files/requirements.txt` to
+install the client dependencies, including PyYAML (`import yaml`), PyTorch,
+robosuite and BDDL. Installing `LIBERO/` with `pip install -e` alone does not
+install these dependencies. On first import, the installer accepts LIBERO's
+default dataset path; existing `~/.libero/config.yaml` settings are preserved.
+
 HuggingFace is forced **offline** by the launcher — base-model artifacts must
 already be in `~/.cache/huggingface`.
 

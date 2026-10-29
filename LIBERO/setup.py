@@ -4,12 +4,15 @@ from os import path
 from setuptools import find_packages, setup
 
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, "./README.md"), encoding="utf-8") as f:
-    lines = f.readlines()
-
-# remove images from README
-lines = [x for x in lines if ".png" not in x]
-long_description = "".join(lines)
+description = "LIBERO: Benchmarking Knowledge Transfer for Lifelong Robot Learning"
+readme_path = path.join(this_directory, "README.md")
+if path.isfile(readme_path):
+    with open(readme_path, encoding="utf-8") as f:
+        # Remove images from README.
+        long_description = "".join(line for line in f if ".png" not in line)
+else:
+    # Vendored copies may omit the upstream README.
+    long_description = description
 
 setup(
     name="libero",
@@ -18,7 +21,7 @@ setup(
     eager_resources=["*"],
     include_package_data=True,
     python_requires=">=3",
-    description="LIBERO: Benchmarking Knowledge Transfer for Lifelong Robot Learning",
+    description=description,
     author="Bo Liu, Yifeng Zhu, Chongkai Gao, Yihao Feng, Qiang Liu, Yuke Zhu, Peter Stone",
     # url="https://github.com/ARISE-Initiative/robosuite",
     author_email="bliu@cs.utexas.edu, yifengz@cs.utexas.edu",

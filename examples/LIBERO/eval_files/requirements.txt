@@ -1,0 +1,23 @@
+# Evaluation client dependencies; training dependencies live at the repo root.
+# Keep NumPy 1.x for the legacy Gym / robosuite stack.
+numpy==1.24.4
+mujoco==3.2.3
+torch==2.6.0
+robosuite==1.4.0
+# robosuite 1.4.0 imports termcolor but omits it from its package dependencies.
+termcolor
+bddl==1.0.1
+future==0.18.2
+gym==0.25.2
+opencv-python==4.6.0.66
+PyYAML
+easydict==1.9
+cloudpickle
+imageio[ffmpeg]
+tqdm
+tyro
+matplotlib
+mediapy
+websockets>=14
+msgpack
+typing_extensions>=4.5

@@ -22,6 +22,7 @@ LIBERO_CONDA_ENV="${LIBERO_CONDA_ENV:-libero}"
 LIBERO_PARENT_DIR="${LIBERO_PARENT_DIR:-$HOME}"
 LIBERO_DIR="${LIBERO_DIR:-${LIBERO_PARENT_DIR}/LIBERO}"
 SKIP_CONDA_ACTIVATE="${SKIP_CONDA_ACTIVATE:-0}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=== Step 1: Activate LIBERO Python environment ==="
 if [[ "${SKIP_CONDA_ACTIVATE}" != "1" ]]; then
@@ -36,9 +37,7 @@ else
 fi
 
 echo "=== Step 2: Install MuJoCo and eval dependencies ==="
-python -m pip install mujoco==3.2.3
-python -m pip install tyro matplotlib mediapy websockets msgpack
-python -m pip install numpy==1.24.4
+python -m pip install -r "${SCRIPT_DIR}/requirements.txt"
 
 echo "=== Step 3: Clone LIBERO if needed ==="
 mkdir -p "${LIBERO_PARENT_DIR}"
@@ -53,7 +52,10 @@ cd "${LIBERO_DIR}"
 python -m pip install -e .
 
 echo "=== Step 5: Verify installation ==="
-python -c "from libero.libero import benchmark; print('LIBERO OK:', benchmark)"
+# On first import, accept LIBERO's default dataset path without blocking on input.
+# Existing LIBERO configurations are preserved.
+python -c "from libero.libero import benchmark; print('LIBERO OK:', benchmark)" <<< "n"
+MUJOCO_GL="${MUJOCO_GL:-egl}" python -c "from libero.libero.envs import OffScreenRenderEnv; print('LIBERO env OK:', OffScreenRenderEnv)"
 python -c "import mujoco; print('MuJoCo OK:', mujoco.__version__)"
 python -c "import tyro; print('tyro OK')"
 python -c "import websockets; print('websockets OK')"
