@@ -22,6 +22,9 @@ suites, plus a reproducible single-script evaluation protocol.
 
 </div>
 
+本地 FlowDAgger × LIBERO-Recovery 离线适配：[实现说明](../FlowDAgger/docs/libero_offline_implementation.md) · [使用教程](../FlowDAgger/docs/libero_offline_usage.md)。
+
+
 > **📦 Data release**: all scenes, annotations and rollouts are now available on
 > ModelScope (see [§2 Data download](#2-data-download)).
 

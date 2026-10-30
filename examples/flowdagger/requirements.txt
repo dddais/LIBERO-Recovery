@@ -1,0 +1,2 @@
+# Install in a separate simulation environment; do not downgrade the JAX training environment.
+-r ../LIBERO/eval_files/requirements.txt

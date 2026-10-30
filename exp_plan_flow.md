@@ -27,7 +27,8 @@
     2.代码组织简洁高效，不要防御性编程
     3.修改完后用文档简要总结改动与使用方法
   - 请检查我上述适配修改是否合理，不合理的地方请修改相应文档和代码
-  - 文档：
+  - 文档：/home/dais/workspace/LIBERO-Recovery/docs/flowdagger_offline_eval.md；/home/dais/workspace/FlowDAgger/docs/libero_offline_steering.md
+
 
 
 
@@ -35,6 +36,7 @@
 
 - 训练与评估
   - 用/home/dais/workspace/LIBERO-Recovery/datasets/plus_featured的数据对Flowdagger的pi05进行训练，每个任务数据离线训一个单独的小模型
+  - 注意EGL绑定的GPU最好和计算用的GPU一致
   - 每一个小模型用对应的任务评估
   - 注意不需要三种子，最多两种子即可
   - 注意提示词必须和训练的原始文本对齐
@@ -60,4 +62,4 @@ starvla:conda activate starvla
 
 **vpn** : proxy_on
 
-**模型**：~/workspace/model/pi05_libero
+**模型**：~/workspace/model/pi05_libero （该模型正在下载，评估前先检查一下，如果还未下载完先等下载完）
