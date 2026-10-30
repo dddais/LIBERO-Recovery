@@ -45,11 +45,10 @@
   - 评估1:standard场景
   - 评估2:recovery场景
 - 注意：
-  - 注意EGL绑定的GPU最好和计算用的GPU一致
   - 每一个小模型用对应的任务评估
   - 注意不需要三种子，最多两种子即可
   - 注意提示词必须和训练的原始文本对齐
-- 结束后用一个文档总结实验结果
+- 结束后用一个文档总结实验结果,要求说人话，不要防御性写作
 - 结束后删除不必要的文档，代码
 
 
@@ -58,11 +57,11 @@
 
 增量式修改：代码修改不要影响到之前的实验运行，尽量以增量式的形式增加代码，比如加可选参数配置之类的
 
-**文档**：使用/总结文档 放在/home/dais/workspace/FlowDAgger/docs
+**文档**：使用/总结文档 放在/home/dais/workspace/FlowDAgger/docs/flow_recovery_pi05_standard_tjh
 
-**输出**：/home/dais/workspace/FlowDAgger/outputs/flow_recovery
+**输出**：/home/dais/workspace/FlowDAgger/outputs/flow_recovery_pi05_standard_tjh
 
-**config** （如有必要）放在：/home/dais/workspace/FlowDAgger/config/flow_recovery
+**config** （如有必要）放在：/home/dais/workspace/FlowDAgger/config/flow_recovery_pi05_standard_tjh
 
 **环境**：FlowDagger:/home/dais/workspace/FlowDAgger/.venv-pi05
 libero:conda activate libero
