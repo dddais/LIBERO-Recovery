@@ -27,20 +27,30 @@
     2.代码组织简洁高效，不要防御性编程
     3.修改完后用文档简要总结改动与使用方法
   - 请检查我上述适配修改是否合理，不合理的地方请修改相应文档和代码
-  - 文档：/home/dais/workspace/LIBERO-Recovery/docs/flowdagger_offline_eval.md；/home/dais/workspace/FlowDAgger/docs/libero_offline_steering.md
-
+  - 文档：
+    - /home/dais/workspace/FlowDAgger/docs/libero_offline_usage.md；
+    - /home/dais/workspace/FlowDAgger/docs/libero_offline_implementation.md
 
 
 
 ## 主线目标2
 
 - 训练与评估
-  - 用/home/dais/workspace/LIBERO-Recovery/datasets/plus_featured的数据对Flowdagger的pi05进行训练，每个任务数据离线训一个单独的小模型
+- 训练：
+  - baseline1:~/workspace/model/pi05_standard_tjh (在libero多个bench的standard数据上微调后的pi05)
+  - noise方法1-standard only：用/home/dais/workspace/LIBERO-Recovery/datasets/plus_featured的standard数据，按Flowdagger的方法进行训练，每个任务数据离线训一个单独的小模型
+  - noise方法2-recovery only：用/home/dais/workspace/LIBERO-Recovery/datasets/plus_featured的recovery数据，按Flowdagger的方法进行训练，每个任务数据离线训一个单独的小模型
+  - noise方法3-mix：用/home/dais/workspace/LIBERO-Recovery/datasets/plus_featured的recovery和standard数据按照各自50%混合，按Flowdagger的方法进行训练，每个任务数据离线训一个单独的小模型
+- 评估：
+  - 评估1:standard场景
+  - 评估2:recovery场景
+- 注意：
   - 注意EGL绑定的GPU最好和计算用的GPU一致
   - 每一个小模型用对应的任务评估
   - 注意不需要三种子，最多两种子即可
   - 注意提示词必须和训练的原始文本对齐
-  - 写一个使用文档方便后续我自己复现
+- 结束后用一个文档总结实验结果
+- 结束后删除不必要的文档，代码
 
 
 
@@ -62,4 +72,4 @@ starvla:conda activate starvla
 
 **vpn** : proxy_on
 
-**模型**：~/workspace/model/pi05_libero （该模型正在下载，评估前先检查一下，如果还未下载完先等下载完）
+**模型**：~/workspace/model/pi05_standard_tjh 
