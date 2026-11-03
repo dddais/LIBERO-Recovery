@@ -26,7 +26,7 @@
     - 1.尽可能增量式修改，不要改动原代码，比如增加并行的文件夹，增加可选配置项等等
     2.代码组织简洁高效，不要防御性编程
     3.修改完后用文档简要总结改动与使用方法
-  - 请检查我上述适配修改是否合理，不合理的地方请修改相应文档和代码
+  - 请检查我上述适配修改是否合理，是否正确，不合理的地方请修改相应文档和代码
   - 文档：
     - /home/dais/workspace/FlowDAgger/docs/libero_offline_usage.md；
     - /home/dais/workspace/FlowDAgger/docs/libero_offline_implementation.md
@@ -35,21 +35,23 @@
 
 ## 主线目标2
 
-- 训练与评估
+- 训练与评测
 - 训练：
-  - baseline1:~/workspace/model/pi05_standard_tjh (在libero多个bench的standard数据上微调后的pi05)
+  - baseline1:/home/dais/workspace/model/pi05_ten_tasks_fullft/19999 (在这10个任务的standard数据上微调后的pi05)
   - noise方法1-standard only：用/home/dais/workspace/LIBERO-Recovery/datasets/plus_featured的standard数据，按Flowdagger的方法进行训练，每个任务数据离线训一个单独的小模型
   - noise方法2-recovery only：用/home/dais/workspace/LIBERO-Recovery/datasets/plus_featured的recovery数据，按Flowdagger的方法进行训练，每个任务数据离线训一个单独的小模型
   - noise方法3-mix：用/home/dais/workspace/LIBERO-Recovery/datasets/plus_featured的recovery和standard数据按照各自50%混合，按Flowdagger的方法进行训练，每个任务数据离线训一个单独的小模型
-- 评估：
+- 评测：
+  - 具体评测方法参考原bench的设置：/home/dais/workspace/LIBERO-Recovery/examples/LIBERO/eval_files/eval_libero.py； /home/dais/workspace/LIBERO-Recovery/examples/LIBERO/eval_files/eval_libero_custom_scene.py
   - 评估1:standard场景
   - 评估2:recovery场景
 - 注意：
   - 每一个小模型用对应的任务评估
-  - 注意不需要三种子，最多两种子即可
+  - 注意不需要多种子，一种子即可
   - 注意提示词必须和训练的原始文本对齐
-- 结束后用一个文档总结实验结果,要求说人话，不要防御性写作
-- 结束后删除不必要的文档，代码
+- 总结收尾 
+  - 结束后用一个文档总结实验结果,要求说人话，不要防御性写作
+  - 结束后删除不必要的文档，代码
 
 
 
@@ -57,11 +59,11 @@
 
 增量式修改：代码修改不要影响到之前的实验运行，尽量以增量式的形式增加代码，比如加可选参数配置之类的
 
-**文档**：使用/总结文档 放在/home/dais/workspace/FlowDAgger/docs/flow_recovery_pi05_standard_tjh
+**文档**：使用/总结文档 放在/home/dais/workspace/FlowDAgger/docs/pi05_ten_tasks_fullft
 
-**输出**：/home/dais/workspace/FlowDAgger/outputs/flow_recovery_pi05_standard_tjh
+**输出**：/home/dais/workspace/FlowDAgger/outputs/pi05_ten_tasks_fullft
 
-**config** （如有必要）放在：/home/dais/workspace/FlowDAgger/config/flow_recovery_pi05_standard_tjh
+**config** （如有必要）放在：/home/dais/workspace/FlowDAgger/config/pi05_ten_tasks_fullft
 
 **环境**：FlowDagger:/home/dais/workspace/FlowDAgger/.venv-pi05
 libero:conda activate libero
@@ -71,4 +73,4 @@ starvla:conda activate starvla
 
 **vpn** : proxy_on
 
-**模型**：~/workspace/model/pi05_standard_tjh 
+**模型**：/home/dais/workspace/model/pi05_ten_tasks_fullft/19999;训练配置~/workspace/model/pi05_ten_tasks_fullft/19999/train_config.yaml
